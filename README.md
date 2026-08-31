@@ -1,1 +1,1 @@
-# Parcial 1 - Neurocontrol 2
+# Midterm 1 - Neurocontrol 2
