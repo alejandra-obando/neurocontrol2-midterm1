@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Midterm I Neurocontrol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="fondo" aria-hidden="true">
+  <i class="halo halo-a"></i><i class="halo halo-b"></i><i class="halo halo-c"></i>
+  <i class="malla"></i>
+</div>
+
+<!-- ============================================================ HEADER -->
+<header id="barra">
+  <div class="marca">
+    <span class="logo"><i></i></span>
+    <div>
+      <b>Midterm I <em>Neurocontrol</em></b>
+      <small>maze robot</small>
+    </div>
+  </div>
+
+  <div class="estado-chips">
+    <span class="chip" id="chip-enlace"><i></i><span>link</span></span>
+    <span class="chip" id="chip-imu"><i></i><span>IMU</span></span>
+    <span class="chip" id="chip-motores"><i></i><span>motors</span></span>
+    <span class="chip" id="chip-hz"><b>0</b><span>Hz</span></span>
+    <span class="chip modo" id="chip-modo"><b id="txt-estado-pi">waiting</b></span>
+  </div>
+
+  <div class="acciones">
+    <button id="btn-start" class="btn btn-start"><span class="ico">▶</span>START</button>
+    <button id="btn-paro" class="btn btn-paro" title="brakes and turns the motors off immediately · space key"><span class="ico">■</span>FORCED STOP</button>
+    <button id="btn-meta" class="btn btn-meta" title="declares the exit by hand and closes the run as a success · key F"><span class="ico">⚑</span>MANUAL GOAL</button>
+    <button id="btn-limpiar" class="btn btn-limpiar" title="erases runs, Q table, master route and map (only with the robot stopped); asks whether the network too"><span class="ico">🧹</span>CLEAR RUNS</button>
+  </div>
+</header>
+<p id="mensaje" class="mensaje">—</p>
+<p id="aviso-orden" class="aviso" hidden></p>
+
+<main>
+
+<!-- ================================================ BRAIN + MAP -->
+<section class="fila-cerebro">
+
+  <!-- ---------- neural network -->
+  <article class="panel panel-red">
+    <header class="panel-cab">
+      <h2>Neural system</h2>
+      <div class="leyenda-calor" aria-label="activation scale">
+        <span>off</span><i></i><span>maximum</span>
+      </div>
+    </header>
+
+    <div class="red" id="red">
+      <div class="capa" data-capa="tof">
+        <h3>ToF sensors</h3>
+        <small>distance · mm</small>
+        <div class="nodos" id="capa-tof"></div>
+      </div>
+
+      <div class="capa" data-capa="naka">
+        <h3>Naka–Rushton</h3>
+        <small>z₀…z₃ · free space</small>
+        <div class="nodos" id="capa-naka"></div>
+      </div>
+
+      <div class="capa" data-capa="gauss">
+        <h3>Gaussians</h3>
+        <small>z₄…z₇ · receptive field</small>
+        <div class="nodos" id="capa-gauss"></div>
+      </div>
+
+      <div class="capa capa-pi" data-capa="pi">
+        <h3>Raspberry Pi</h3>
+        <small>decision per cell</small>
+        <div class="nodos fila2" id="capa-mem"></div>
+        <div class="bloque-mlp" id="mlp">
+          <div class="mlp-cab"><b>MLP</b><span>8 · 32 · 32 · 4</span></div>
+          <div class="mlp-matriz" id="mlp-h1" title="hidden layer 1"></div>
+          <div class="mlp-matriz" id="mlp-h2" title="hidden layer 2"></div>
+          <div class="mlp-q" id="mlp-q"></div>
+        </div>
+      </div>
+
+      <div class="capa" data-capa="votos">
+        <h3>Votes</h3>
+        <small>score(d) = Σ memories</small>
+        <div class="nodos votos" id="capa-votos"></div>
+      </div>
+
+      <div class="capa" data-capa="softmax">
+        <h3>Softmax</h3>
+        <small>P(direction) · T=<b id="txt-temp">—</b></small>
+        <div class="nodos" id="capa-softmax"></div>
+      </div>
+
+      <svg class="cables" id="cables" aria-hidden="true"></svg>
+    </div>
+  </article>
+
+  <!-- ---------- decision + camera -->
+  <article class="panel panel-decision">
+    <div class="decision" id="decision">
+      <small>decision</small>
+      <b id="txt-decision">—</b>
+      <span class="hacia" id="txt-hacia" hidden>→ N</span>
+      <span id="txt-motivo">waiting for START</span>
+      <div class="brujula" id="brujula">
+        <i class="n">N</i><i class="e">E</i><i class="s">S</i><i class="o">O</i>
+        <em id="aguja"></em>
+      </div>
+    </div>
+
+    <div class="camara" id="camara">
+      <header><h3>Camera</h3><span class="chip" id="chip-cam"><i></i><span>off</span></span></header>
+      <a id="cam-enlace" href="#" target="_blank" title="open the camera in its own tab"><img id="cam-vista" alt="what the robot sees" hidden></a>
+      <div class="cam-figura" id="cam-figura">
+        <svg viewBox="0 0 64 64" id="cam-icono" aria-hidden="true"></svg>
+        <b id="cam-texto">no figure in view</b>
+        <small id="cam-detalle">—</small>
+      </div>
+      <div class="cam-puertas" id="cam-puertas">
+        <span data-p="dist">distance</span>
+        <span data-p="area">area</span>
+        <span data-p="conf">confidence</span>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---------- map -->
+  <article class="panel panel-mapa">
+    <header class="panel-cab">
+      <h2>Maze</h2>
+      <div class="mapa-datos">
+        <span><b id="txt-celda">8,8</b>cell</span>
+        <span><b id="txt-orient">N</b>facing</span>
+        <span><b id="txt-paso">0</b>step</span>
+        <span><b id="txt-cm">0.0</b>cm stretch</span>
+      </div>
+    </header>
+    <div class="lienzo-marco">
+      <canvas id="lienzo" width="720" height="720"></canvas>
+    </div>
+    <footer class="mapa-pie">
+      <span><i class="sw pared"></i>discovered wall</span>
+      <span><i class="sw impacto"></i>ToF hit</span>
+      <span><i class="sw rastro"></i>odometric trace</span>
+      <span class="der">cell = <b id="txt-celda-cm">24</b> cm</span>
+    </footer>
+  </article>
+</section>
+
+<!-- ================================================ MANUAL CONTROL -->
+<section class="panel panel-mando">
+  <header class="panel-cab">
+    <h2>Manual control</h2>
+    <small id="txt-manual">only with the robot stopped · the keyboard arrows work too</small>
+  </header>
+  <div class="mando">
+    <button class="mando-btn" data-mando="izq" title="key ←">
+      <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
+      <span>Turn left</span><small>90° · IMU</small>
+    </button>
+    <button class="mando-btn principal" data-mando="avance" title="key ↑">
+      <svg viewBox="0 0 48 48"><path d="M24 40V10" /><path d="M12 22 24 10l12 12" /></svg>
+      <span>Forward</span><small>5 s push</small>
+    </button>
+    <button class="mando-btn" data-mando="der" title="key →">
+      <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
+      <span>Turn right</span><small>90° · IMU</small>
+    </button>
+    <button class="mando-btn stop" data-mando="stop" title="space key">
+      <svg viewBox="0 0 48 48"><rect x="13" y="13" width="22" height="22" rx="3" /></svg>
+      <span>Stop</span><small>brake now</small>
+    </button>
+    <button class="mando-btn" data-mando="retro" title="key ↓">
+      <svg viewBox="0 0 48 48"><path d="M24 8v30" /><path d="M12 26l12 12 12-12" /></svg>
+      <span>Reverse</span><small>5 s push</small>
+    </button>
+  </div>
+</section>
+
+<!-- ================================================ PLOTS -->
+<section class="fila-graficas">
+  <article class="panel grafica">
+    <header class="panel-cab"><h2>ToF · distance</h2><small>mm · dashed = wall threshold</small></header>
+    <canvas id="g-tof" height="170"></canvas>
+    <div class="leyenda" id="ley-tof"></div>
+  </article>
+  <article class="panel grafica">
+    <header class="panel-cab"><h2>Gaussians → wall</h2><small>z₄…z₇ · 0 = wall, 1 = free</small></header>
+    <canvas id="g-gauss" height="170"></canvas>
+    <div class="leyenda" id="ley-gauss"></div>
+  </article>
+  <article class="panel grafica">
+    <header class="panel-cab"><h2>PWM · left wheels</h2><small>FL (DI) · RL (TI) · 0–255</small></header>
+    <canvas id="g-pwm-izq" height="170"></canvas>
+    <div class="leyenda" id="ley-pwm-izq"></div>
+  </article>
+  <article class="panel grafica">
+    <header class="panel-cab"><h2>PWM · right wheels</h2><small>FR (DD) · RR (TD) · 0–255</small></header>
+    <canvas id="g-pwm-der" height="170"></canvas>
+    <div class="leyenda" id="ley-pwm-der"></div>
+  </article>
+</section>
+
+<!-- ================================================ TELEMETRY -->
+<section class="panel panel-telemetria">
+  <header class="panel-cab"><h2>Telemetry</h2><small id="txt-fw">—</small></header>
+  <div class="telemetria" id="telemetria"></div>
+</section>
+
+</main>
+
+<script src="simulator.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

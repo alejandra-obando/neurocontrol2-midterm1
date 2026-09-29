@@ -1,0 +1,3 @@
+numpy
+pyserial
+opencv-python  # optional: only needed with --camera and for the camera tests

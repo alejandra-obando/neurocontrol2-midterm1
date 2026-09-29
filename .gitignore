@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+# ESP32 build output and secrets
+firmware/.pio/
+firmware/src/secrets.h
+# files the robot writes while running
+raspberry_pi/data/rl_state_robot*.json
+raspberry_pi/data/rl_state_robot*_red.npz
+raspberry_pi/data/runs/
+raspberry_pi/data/camera_calibration.csv
+raspberry_pi/batches/
